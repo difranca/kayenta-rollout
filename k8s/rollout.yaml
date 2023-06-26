@@ -126,7 +126,7 @@ spec:
 
             # Whether to look for the templateName at cluster scope or namespace scope.
             # Defaults to false.
-            clusterScope: true
+            clusterScope: false
 
       - pause: {}
   
