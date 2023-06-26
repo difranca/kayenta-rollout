@@ -1,0 +1,160 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: kayenta-demo
+  namespace: poc
+spec:
+
+  # Number of desired pods.
+  # Defaults to 1.
+  replicas: 5
+
+  # Minimum number of seconds for which a newly created pod should be ready
+  # without any of its container crashing, for it to be considered available.
+  # Defaults to 0 (pod will be considered available as soon as it is ready).
+  minReadySeconds: 0
+  
+  # The number of old ReplicaSets to retain.
+  # Defaults to 10..
+  revisionHistoryLimit: 5
+  
+  # The window in which a rollback will be fast tracked (fully promoted).
+  # Defaults to not set.
+  rollbackWindow:
+    revisions: 0
+
+  # The maximum time in seconds for a rollout to make progress before it is
+  # considered to be failed. Argo Rollouts will continue to process failed rollouts.
+  # Defaults to 600s.
+  progressDeadlineSeconds: 600
+
+  # Whether to abort the update when ProgressDeadlineSeconds is exceeded.
+  # Defaults to false.
+  progressDeadlineAbort: false
+
+  # Label selector for pods. Existing ReplicaSets whose pods are
+  # selected by this will be the ones affected by this rollout.
+  # It must match the pod template's labels.
+  selector:
+    matchLabels:
+      app: kayenta-demo
+
+  # The deployment strategy to use to replace existing pods with new ones.
+  strategy:
+    canary:
+      
+      # CanaryMetadata and stableMetadata specify labels and annotations which will be attached to
+      # the canary and stable pods.
+      canaryMetadata:
+        annotations:
+          role: canary
+        labels:
+          role: canary
+      stableMetadata:
+        annotations:
+          role: stable
+        labels:
+          role: stable
+
+      # The maximum number of pods that can be unavailable during the update.
+      # Value can be an absolute number or a percentage.
+      # Defaults to 25%.
+      maxUnavailable: 25%
+
+      # The maximum number of pods that can be scheduled above the desired number of pods.
+      # Value can be an absolute number or a percentage.
+      # Defaults to 25%.
+      maxSurge: 25%
+      
+      # Steps define the order of phases to execute the canary deployment
+      steps:
+      
+      # Sets what percentage of requests the canary pods should receive
+      - setWeight: 50
+      
+      # Pause the canary rollout.
+      - pause:
+          duration: 1s
+      
+      # Defines the experiment object that should be created
+      - experiment:
+
+          # Duration string that the experiment should run for.
+          duration: 30s
+
+          # What templates that should be added to the experiment.
+          templates:
+          - metadata: {}
+            name: baseline
+            specRef: stable
+          - metadata: {}
+            name: canary
+            specRef: canary
+      
+          # Reference which analysis templates to run with the experiment.
+          analyses:    
+          - name: mann-whitney
+            # Arguments that will be added to the AnalysisRuns.
+            args:
+            # PodTemplateHash of the running stable version.
+            - name: stable-hash
+              valueFrom:
+                podTemplateHashValue: Stable
+            # PodTemplateHash of the running canary version.
+            - name: latest-hash
+              valueFrom:
+                podTemplateHashValue: Latest
+            # PodTemplateHash of the experiment's baseline version.
+            - name: baseline-hash
+              value: '{{ templates.baseline.podTemplateHash }}'
+            # PodTemplateHash of the experiment's canary version.
+            - name: canary-hash
+              value: '{{ templates.canary.podTemplateHash }}'
+            # Start time of the experiment.
+            - name: start-time
+              value: '{{ experiment.availableAt }}'
+            # End time of the experiment (start time + duration).
+            - name: end-time
+              value: '{{ experiment.finishedAt }}'
+            
+            # Blocks the Experiment from completing until the analysis has completed.
+            # Defaults to false.
+            requiredForCompletion: true
+
+            # Reference of the AnalysisTemplate name used by the Experiment to create the run.
+            templateName: mann-whitney
+
+            # Whether to look for the templateName at cluster scope or namespace scope.
+            # Defaults to false.
+            clusterScope: true
+
+      - pause: {}
+  
+  # Describes the pods that will be created.
+  template:
+    metadata:
+      labels:
+        app: kayenta-demo
+    spec:
+      containers:
+      - image: diegofranca886/kayenta-poc:2.0
+        imagePullPolicy: Always
+        name: kayenta-demo
+        ports:
+        - containerPort: 8080
+          name: metrics
+          protocol: TCP
+        - containerPort: 5000
+          name: http
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 30m
+            memory: 32Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 5

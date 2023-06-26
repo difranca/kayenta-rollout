@@ -1,6 +1,6 @@
 {
   "name": "kayenta-demo-config",
-  "description": "canary configuration for the rollout kayenta-demo",
+  "description": "Canary configuration for the rollout kayenta-demo. Docs at https://github.com/spinnaker/kayenta/blob/master/docs/canary-config.md.",
   "applications": ["kayenta-demo"],
   "judge": {
     "name": "NetflixACAJudge-v1.0",
@@ -21,7 +21,7 @@
           "nanStrategy": "remove",
           "direction": "increase",
           "effectSize": {
-            "allowedIncrease": 1.1,
+            "allowedIncrease": 1.2,
             "criticalIncrease": 2
           }
         }

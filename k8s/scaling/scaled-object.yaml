@@ -1,0 +1,21 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: kayenta-demo
+  namespace: poc
+spec:
+  scaleTargetRef:
+    apiVersion: argoproj.io/v1alpha1
+    kind: Rollout
+    name: kayenta-demo
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus.monitoring:9090
+        metricName: cpu_usage_percentage
+        query: avg(cpu_usage_percentage{job="kubernetes-service-pods",kubernetes_name="kayenta-demo"})
+        threshold: "20"
+  idleReplicaCount: 1                      
+  minReplicaCount: 1
+  maxReplicaCount: 10
+  
